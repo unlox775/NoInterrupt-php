@@ -1,0 +1,67 @@
+Example Usage:
+
+<pre>
+   	$error = null;
+   	require_once('NoInterrupt.php');
+   	NoInterrupt::run(function() use ($order, $send_to) {
+		$order->sendConfirmationEmail($send_to);
+	})
+	->catch('*', function ($e, $no_interrupt) use (&$error, $order) { $error = Globals::exceptionToReturnObj( $error, $e, $no_interrupt, $order); })
+	->catchWarnings(function ($warnings)      use (&$error, $order) { $error = Globals::warningsToReturnObj(  $error, $warnings,         $order); });
+	if ( $error ) { return $this->badRequest($error); }
+</pre>
+
+More involved example:
+
+<pre>
+///  Capture the Transaction if CreditCard
+NoInterrupt::run(function() use ($order, $payment_types, &$payment_i, &$auth_transactions) {
+	foreach ( $payment_types as $payment_i => $payment ) {
+		if ( $payment->type == 'credit_card' ) {
+			$auth_transaction = $order->captureCreditCardFunds($amount, $payment, $this);
+			$auth_transactions[] = $auth_transaction;
+		}
+		else if ( $payment->type == 'accounts_receivable' ) {
+			$order->addAccountsReceivablePayment($amount, $payment, $this);
+		}
+		else if ( $payment->type == 'gift_certificate' ) {
+			$order->captureGiftCertificateFunds($amount, $payment, $this);
+		}
+		else {
+			$this->assert('Payment Type is credit_card, gift_certificate or accounts_receivable', false);
+		}
+	}
+})
+->catch('PaymentTransaction__DeclinedException', function ($e, $no_interrupt) use (&$error, $order, $payment_i) {
+	$error = Globals::exceptionToReturnObj($error,$e, $no_interrupt, $order);
+})
+->catch('*', function ($e, $no_interrupt) use (&$error, $order) { $error = Globals::exceptionToReturnObj( $error, $e, $no_interrupt, $order); })
+->catchWarnings(function ($warnings)      use (&$error, $order) { $error = Globals::warningsToReturnObj(  $error, $warnings,         $order); })
+;
+if ( ! empty( $error) ) {
+	$order->delete(); // Leaves transactions with a null ordr_id field, but still linked to the quote
+	foreach ( $auth_transactions as $auth_transaction ) { $auth_transaction->releaseAuth(); }
+	return $error;
+}
+</pre>
+
+Example using it to simply make sure it logs, even on fatal errors:
+<pre>
+require_once('NoInterrupt.php');
+$failed = true;
+NoInterrupt::run(function() use ($feed, $feed_file, &$records_count, &$failed) {
+	$records_count = $feed->processFeedFile( $feed_file, $this->verbose );
+	$failed = false;
+})->echoMessages();
+
+///  ON FAILURE : Reconnect to the DB just in case we killed the DB handle
+if ( $failed ) {
+	Globals::getDb(null,false,'db',true /* <= Force Re-Connect and ORM re-associate to handles */);
+}
+
+$log = new IncomingFeedLog();
+$log->create(array(
+	...
+	'parse_status' => ( $failed ? 'fail' : 'success'),
+	));
+</pre>
