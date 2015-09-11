@@ -88,20 +88,30 @@ class NoInterrupt {
 		$this->caught_warnings = $caught_warnings;
 	}
 
-	public function echoMessages() {
+	public function __echoMessages() {
+		$to_echo = null;
 		$echoed_warnings = false;
 		$this
-		->catch('*', function ($e, $no_interrupt) use(&$echoed_warnings) {
+		->catch('*', function ($e, $no_interrupt) use(&$echoed_warnings, &$to_echo) {
+			$to_echo = '';
 			if ( ! empty( $no_interrupt->caught_warnings ) ) {
-				echo "\n\nWarnings:\n". join("\n", $no_interrupt->caught_warnings)."\n\n";
+				$to_echo .= "\n\nWarnings:\n". join("\n", $no_interrupt->caught_warnings)."\n\n";
 				$echoed_warnings = true;
 			}
-			echo "\n\nFatal Exception (". get_class($e) ."): ". $e->getMessage()."\n\n";
+			$to_echo .= "\n\nFatal Exception (". get_class($e) ."): ". $e->getMessage()."\n\n";
 		})
-		->catchWarnings(function ($warnings)      use(&$echoed_warnings) {
+		->catchWarnings(function ($warnings)      use(&$echoed_warnings, &$to_echo) {
 			if ( $echoed_warnings ) { return; }
-			echo         "Warnings:\n". join("\n",                      $warnings)."\n\n";
+			$to_echo =          "Warnings:\n". join("\n",                      $warnings)."\n\n";
 		});
+		return $to_echo;
+	}
+	public function echoMessages() { echo $this->__echoMessages(); }
+	public function echoMessagesToErrorLog() {
+		foreach ( explode("\n",$this->__echoMessages()) as $line ) {
+			if ( empty( $line ) || $line == 'Warnings:' ) { continue; }
+			error_log($line);
+		}
 	}
 
 
