@@ -1,5 +1,14 @@
 <?php
 
+/********************
+ *
+ * NoInterrupt - Protect from Exceptions and Fatal errors on a block
+ *
+ * 2015 by David Buchanan - http://joesvolcano.net/
+ *
+ * GitHub: https://github.com/unlox775/NoInterrupt-php
+ *
+ ********************/
 
 class NoInterrupt {
 	static function run($function, $throw_warnings = false) {
