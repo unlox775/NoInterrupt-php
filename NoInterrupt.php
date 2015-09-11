@@ -106,12 +106,13 @@ class NoInterrupt {
 		});
 		return $to_echo;
 	}
-	public function echoMessages() { echo $this->__echoMessages(); }
+	public function echoMessages() { echo $this->__echoMessages(); return $this; }
 	public function echoMessagesToErrorLog() {
 		foreach ( explode("\n",$this->__echoMessages()) as $line ) {
 			if ( empty( $line ) || $line == 'Warnings:' ) { continue; }
 			error_log($line);
 		}
+		return $this;
 	}
 
 
